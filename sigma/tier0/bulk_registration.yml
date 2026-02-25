@@ -1,0 +1,31 @@
+title: Bulk Account Registration from Shared Infrastructure
+id: parallax_t0_001_v1
+status: stable
+description: Detects coordinated bulk account creation patterns from shared IP ranges and devices
+references:
+    - https://github.com/yourusername/parallax
+author: Parallax Team
+date: 2024/02/25
+modified: 2024/02/25
+tags:
+    - attack.persistence
+    - attack.t1136
+    - parallax.tier0
+logsource:
+    product: parallax
+    service: user_activity
+detection:
+    selection:
+        activity_type: registration
+    timeframe: 2h
+    condition: selection | count(user_id) by ip_subnet >= 10
+fields:
+    - user_id
+    - ip_hash
+    - device_fingerprint
+    - timestamp
+falsepositives:
+    - Corporate networks with shared NAT
+    - University/school registrations
+    - Public WiFi hotspots
+level: high

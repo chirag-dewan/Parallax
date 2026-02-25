@@ -1,0 +1,38 @@
+title: Automated Account Behavior Signatures
+id: parallax_t1_002_v1
+status: stable
+description: Detects behavioral patterns consistent with automated/bot accounts
+references:
+    - https://github.com/yourusername/parallax
+author: Parallax Team
+date: 2024/02/25
+modified: 2024/02/25
+tags:
+    - attack.execution
+    - attack.t1059
+    - parallax.tier1
+logsource:
+    product: parallax
+    service: user_activity
+detection:
+    selection_timing:
+        timing_regularity_cv: '< 0.15'
+    selection_api:
+        device_type: api
+        api_usage_ratio: '> 0.3'
+    selection_ua:
+        user_agent_diversity: '< 0.2'
+    selection_device:
+        device_fp_diversity: '< 0.1'
+    condition: 2 of selection_*
+fields:
+    - user_id
+    - device_type
+    - user_agent_family
+    - timestamp
+    - ip_hash
+falsepositives:
+    - Legitimate API integrations
+    - Mobile apps with consistent user agents
+    - Power users with automated workflows
+level: high
