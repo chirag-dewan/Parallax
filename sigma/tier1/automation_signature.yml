@@ -3,7 +3,7 @@ id: parallax_t1_002_v1
 status: stable
 description: Detects behavioral patterns consistent with automated/bot accounts
 references:
-    - https://github.com/yourusername/parallax
+    - https://github.com/chirag-dewan/Parallax
 author: Parallax Team
 date: 2024/02/25
 modified: 2024/02/25

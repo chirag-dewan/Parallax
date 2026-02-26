@@ -844,7 +844,7 @@ parallax version
 ## Setup
 
 ```bash
-git clone https://github.com/yourusername/parallax.git
+git clone https://github.com/chirag-dewan/Parallax.git
 cd parallax
 python3 -m venv venv
 source venv/bin/activate

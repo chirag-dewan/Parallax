@@ -4,7 +4,7 @@
 
 Parallax is a behavioral analysis framework for detecting coordinated inauthentic behavior and influence operations on AI platforms without compromising user privacy.
 
-[![CI](https://github.com/yourusername/parallax/workflows/CI/badge.svg)](https://github.com/yourusername/parallax/actions)
+[![CI](https://github.com/chirag-dewan/Parallax/workflows/CI/badge.svg)](https://github.com/chirag-dewan/Parallax/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -103,7 +103,7 @@ Raw Activity → Normalize → Enrich → Detect → Alert
 ### Setup
 
 ```bash
-git clone https://github.com/yourusername/parallax.git
+git clone https://github.com/chirag-dewan/Parallax.git
 cd parallax
 python -m venv venv
 source venv/bin/activate
@@ -215,7 +215,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 This project implements defensive security capabilities. Please use responsibly and only on platforms you own or have authorization to test.
 
-To report security vulnerabilities, please email security@example.com.
+To report security vulnerabilities, please email chirag0728@gmail.com.
 
 ## 📚 Citation
 
@@ -226,7 +226,7 @@ If you use Parallax in your research, please cite:
   title={Parallax: Privacy-Preserving Threat Detection for AI Platforms},
   author={Dewan, Chirag},
   year={2024},
-  url={https://github.com/yourusername/parallax}
+  url={https://github.com/chirag-dewan/Parallax}
 }
 ```
 
