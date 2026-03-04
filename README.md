@@ -143,7 +143,7 @@ templates/dashboard.html # Dashboard UI
 
 ```bash
 # Clone and install
-git clone https://github.com/[username]/parallax.git
+git clone https://github.com/chirag-dewan/parallax.git
 cd parallax
 python3 -m venv venv
 source venv/bin/activate
