@@ -1,0 +1,10 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["detection"]
+omit = [
+    "detection/engine.py",
+    "detection/__main__.py",
+    "detection/cli.py",
+]
