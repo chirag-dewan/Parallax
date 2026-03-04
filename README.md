@@ -1,5 +1,7 @@
 # PARALLAX
 
+[![CI](https://github.com/chirag-dewan/Parallax/actions/workflows/ci.yml/badge.svg)](https://github.com/chirag-dewan/Parallax/actions/workflows/ci.yml)
+
 **Privacy-Aware Risk Labeling and Lateral Analysis for Cross-Platform Exploitation**
 
 ## The Problem
