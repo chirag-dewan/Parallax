@@ -59,13 +59,15 @@ Escalation recommended above 0.66.
 - All evaluation is on synthetic data with clean archetype boundaries
 
 ## Priority Queue (in order)
-1. Windowed / session-level scoring to catch blended behavior attacks
-2. Signal correlation bonuses to resist single-signal evasion
-3. Adaptive threshold tuning with feedback loop
-4. Replace synthetic data validation with real-adjacent dataset generation
-5. Streaming ingestion and real-time alerting
-6. Tier 0 signals (account age curve, IP clustering)
-7. Tier 3 signals (content-adjacent analysis)
+- [ ] Windowed / session-level scoring to catch blended behavior attacks
+- [ ] Signal correlation bonuses to resist single-signal evasion
+- [ ] Adaptive threshold tuning with feedback loop
+- [ ] Replace synthetic data validation with real-adjacent dataset generation
+- [ ] Streaming ingestion and real-time alerting
+- [ ] Tier 0 signals (account age curve, IP clustering)
+- [ ] Tier 3 signals (content-adjacent analysis)
+- [ ] Refactor event processor to use async generators instead of batch processing
+- [ ] Audit detection modules for edge cases and missing test coverage
 
 ## Code Standards
 - Python 3.11+, type hints on all function signatures
