@@ -2,13 +2,19 @@
 PARALLAX Detection Pipeline
 
 Orchestrates event loading, profile building, detection, and scoring.
+
+Supports both batch and async-generator modes:
+- Batch: load_traffic / score_all (returns complete results)
+- Async: aiter_events / ascore_all (yields results incrementally)
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from pathlib import Path
 from statistics import mean
 
@@ -345,6 +351,73 @@ class DetectionPipeline:
             total_triggered_count=t1_triggered + t2_triggered,
             top_signals=signal_scores[:5],
         )
+
+    # -- Async Generator Interface --
+
+    async def aiter_events(
+        self, filepath: str | Path
+    ) -> AsyncIterator[APIEvent]:
+        """Yield parsed APIEvent objects one at a time from a JSONL file.
+
+        Runs file I/O in a thread to avoid blocking the event loop.
+        """
+        filepath = Path(filepath)
+
+        def _read_lines() -> list[str]:
+            with filepath.open("r") as f:
+                return f.readlines()
+
+        lines = await asyncio.to_thread(_read_lines)
+        for line_num, line in enumerate(lines, 1):
+            try:
+                yield APIEvent.model_validate_json(line)
+            except Exception:
+                logger.warning(
+                    "Skipping malformed event at line %d", line_num
+                )
+
+    async def aload_traffic(self, filepath: str | Path) -> None:
+        """Async variant of load_traffic.
+
+        Streams events through an async generator, builds profiles
+        incrementally, then computes baselines.
+        """
+        raw_events: dict[str, list[APIEvent]] = defaultdict(list)
+        event_count = 0
+
+        async for event in self.aiter_events(filepath):
+            raw_events[event.account_id].append(event)
+            event_count += 1
+
+        logger.info(
+            "Loaded %d events across %d accounts",
+            event_count,
+            len(raw_events),
+        )
+
+        for account_id, events in raw_events.items():
+            events.sort(key=lambda e: e.timestamp)
+            self._profiles[account_id] = self._build_profile(
+                account_id, events
+            )
+
+        self._baseline = PopulationBaseline.from_profiles(
+            list(self._profiles.values())
+        )
+
+        for detector in self._detectors:
+            if detector.TIER == Tier.TIER_2:
+                detector.set_population_baseline(self._baseline)
+
+    async def ascore_all(self) -> AsyncIterator[ThreatAssessment]:
+        """Yield ThreatAssessment for each account incrementally.
+
+        Stores results in self._assessments as a side effect.
+        """
+        for account_id in self._profiles:
+            assessment = self.score_account(account_id)
+            self._assessments[account_id] = assessment
+            yield assessment
 
     # -- Accessors --
 
