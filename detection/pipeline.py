@@ -354,6 +354,103 @@ class DetectionPipeline:
             top_signals=signal_scores[:5],
         )
 
+    # -- Windowed Scoring --
+
+    def score_account_windowed(
+        self,
+        account_id: str,
+        window_hours: float = 4.0,
+        stride_hours: float = 1.0,
+    ) -> ThreatAssessment:
+        """Score an account using sliding time windows.
+
+        Builds a temporary AccountProfile for each window, runs all
+        detectors, and returns the assessment with the highest composite
+        score across all windows.
+        """
+        from datetime import timedelta
+
+        profile = self._profiles[account_id]
+        events = profile.events
+
+        if len(events) < 2:
+            return self.score_account(account_id)
+
+        start_ts = events[0].timestamp
+        end_ts = events[-1].timestamp
+        span = (end_ts - start_ts).total_seconds()
+        window_secs = window_hours * 3600
+        stride_secs = stride_hours * 3600
+
+        # If observation window is shorter than one window, fall back
+        if span <= window_secs:
+            return self.score_account(account_id)
+
+        best_assessment: ThreatAssessment | None = None
+        best_score = -1.0
+        window_count = 0
+        best_window_start = start_ts
+        best_window_end = end_ts
+
+        w_start = start_ts
+        while w_start + timedelta(seconds=window_secs) <= end_ts + timedelta(seconds=stride_secs):
+            w_end = w_start + timedelta(seconds=window_secs)
+
+            # Collect events in this window
+            window_events = [
+                e for e in events
+                if w_start <= e.timestamp < w_end
+            ]
+
+            if len(window_events) >= 2:
+                window_profile = self._build_profile(
+                    account_id, window_events
+                )
+                results: dict[RuleID, DetectionResult] = {}
+                for detector in self._detectors:
+                    results[detector.RULE_ID] = detector.detect(window_profile)
+
+                assessment = self._build_assessment(window_profile, results)
+                window_count += 1
+
+                if assessment.composite_score > best_score:
+                    best_score = assessment.composite_score
+                    best_assessment = assessment
+                    best_window_start = w_start
+                    best_window_end = w_end
+
+            w_start += timedelta(seconds=stride_secs)
+
+        if best_assessment is None:
+            return self.score_account(account_id)
+
+        # Annotate with window metadata
+        best_assessment.peak_window_start = best_window_start.isoformat()
+        best_assessment.peak_window_end = best_window_end.isoformat()
+        best_assessment.windows_evaluated = window_count
+
+        return best_assessment
+
+    def score_all_windowed(
+        self,
+        window_hours: float = 4.0,
+        stride_hours: float = 1.0,
+    ) -> dict[str, ThreatAssessment]:
+        """Run windowed scoring on all loaded accounts."""
+        self._assessments = {}
+        total = len(self._profiles)
+        for i, account_id in enumerate(self._profiles, 1):
+            if i % 50 == 0:
+                logger.info(
+                    "Windowed scoring: %d/%d accounts", i, total
+                )
+            self._assessments[account_id] = self.score_account_windowed(
+                account_id,
+                window_hours=window_hours,
+                stride_hours=stride_hours,
+            )
+        return self._assessments
+
     # -- Async Generator Interface --
 
     async def aiter_events(

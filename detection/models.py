@@ -158,3 +158,7 @@ class ThreatAssessment(BaseModel):
     tier2_triggered_count: int
     total_triggered_count: int
     top_signals: list[tuple[RuleID, float]]
+    # Windowed scoring fields (populated only by windowed pipeline)
+    peak_window_start: str | None = None
+    peak_window_end: str | None = None
+    windows_evaluated: int = 0

@@ -33,6 +33,23 @@ def main() -> None:
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Enable debug logging"
     )
+    parser.add_argument(
+        "--windowed",
+        action="store_true",
+        help="Use sliding-window scoring (peak score across 4h windows)",
+    )
+    parser.add_argument(
+        "--window-hours",
+        type=float,
+        default=4.0,
+        help="Window size in hours for windowed scoring (default: 4)",
+    )
+    parser.add_argument(
+        "--stride-hours",
+        type=float,
+        default=1.0,
+        help="Stride in hours for windowed scoring (default: 1)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -43,12 +60,19 @@ def main() -> None:
     pipeline = DetectionPipeline()
     pipeline.register_default_detectors()
     pipeline.load_traffic(args.traffic_file)
-    pipeline.score_all()
+
+    if args.windowed:
+        pipeline.score_all_windowed(
+            window_hours=args.window_hours,
+            stride_hours=args.stride_hours,
+        )
+    else:
+        pipeline.score_all()
 
     if args.account:
         _print_account_detail(pipeline, args.account)
     else:
-        _print_summary(pipeline, top_n=args.top)
+        _print_summary(pipeline, top_n=args.top, windowed=args.windowed)
 
 
 def _print_account_detail(pipeline: DetectionPipeline, account_id: str) -> None:
@@ -82,7 +106,9 @@ def _print_account_detail(pipeline: DetectionPipeline, account_id: str) -> None:
         )
 
 
-def _print_summary(pipeline: DetectionPipeline, top_n: int) -> None:
+def _print_summary(
+    pipeline: DetectionPipeline, top_n: int, windowed: bool = False
+) -> None:
     assessments = sorted(
         pipeline.assessments.values(),
         key=lambda a: a.composite_score,
@@ -92,14 +118,21 @@ def _print_summary(pipeline: DetectionPipeline, top_n: int) -> None:
     if top_n > 0:
         assessments = assessments[:top_n]
 
-    sys.stdout.write(f"\n{'='*120}\n")
-    sys.stdout.write("PARALLAX THREAT SCORING RESULTS\n")
-    sys.stdout.write(f"{'='*120}\n")
-    sys.stdout.write(
+    width = 140 if windowed else 120
+    sys.stdout.write(f"\n{'='*width}\n")
+    mode = "WINDOWED " if windowed else ""
+    sys.stdout.write(f"PARALLAX {mode}THREAT SCORING RESULTS\n")
+    sys.stdout.write(f"{'='*width}\n")
+
+    header = (
         f"{'Account ID':<20} {'Type':<20} {'Level':<10} "
-        f"{'Score':<8} {'Escal':<6} {'T1':<4} {'T2':<4} {'Top Signals':<40}\n"
+        f"{'Score':<8} {'Escal':<6} {'T1':<4} {'T2':<4} "
     )
-    sys.stdout.write(f"{'-'*120}\n")
+    if windowed:
+        header += f"{'Windows':<8} {'Peak Start':<22} "
+    header += f"{'Top Signals':<40}\n"
+    sys.stdout.write(header)
+    sys.stdout.write(f"{'-'*width}\n")
 
     for a in assessments:
         signals = []
@@ -108,16 +141,20 @@ def _print_summary(pipeline: DetectionPipeline, top_n: int) -> None:
                 signals.append(f"{rule_id.value}:{weighted:.3f}")
         signals_str = ", ".join(signals) if signals else "None"
 
-        sys.stdout.write(
+        line = (
             f"{a.account_id:<20} {a.archetype:<20} "
             f"{a.threat_level.value.upper():<10} "
             f"{a.composite_score:<8.4f} "
             f"{'YES' if a.escalation_recommended else 'NO':<6} "
             f"{a.tier1_triggered_count:<4} {a.tier2_triggered_count:<4} "
-            f"{signals_str:<40}\n"
         )
+        if windowed:
+            peak = a.peak_window_start[:19] if a.peak_window_start else "N/A"
+            line += f"{a.windows_evaluated:<8} {peak:<22} "
+        line += f"{signals_str:<40}\n"
+        sys.stdout.write(line)
 
-    sys.stdout.write(f"{'='*120}\n")
+    sys.stdout.write(f"{'='*width}\n")
 
     # Summary by archetype
     by_arch: dict[str, list[float]] = defaultdict(list)
@@ -135,4 +172,4 @@ def _print_summary(pipeline: DetectionPipeline, top_n: int) -> None:
             f"  {arch:<20} Avg: {mean(scores):.4f}  "
             f"Escalated: {escalated}/{len(scores)}\n"
         )
-    sys.stdout.write(f"\n{'='*120}\n")
+    sys.stdout.write(f"\n{'='*width}\n")
