@@ -50,6 +50,12 @@ def main() -> None:
         default=1.0,
         help="Stride in hours for windowed scoring (default: 1)",
     )
+    parser.add_argument(
+        "--profile",
+        choices=["api", "auth"],
+        default="api",
+        help="Data profile: 'api' (default) or 'auth' (zeroes dead-weight API detectors)",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -59,6 +65,10 @@ def main() -> None:
 
     pipeline = DetectionPipeline()
     pipeline.register_default_detectors()
+
+    if args.profile == "auth":
+        pipeline.apply_auth_profile()
+
     pipeline.load_traffic(args.traffic_file)
 
     if args.windowed:

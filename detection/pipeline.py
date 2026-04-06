@@ -101,6 +101,49 @@ class DetectionPipeline:
                 "Detector weights sum to %.3f, expected 1.0", total_weight
             )
 
+    # Dead-weight rules on auth data (no meaningful token/model/context signals)
+    AUTH_ZERO_RULES: set[RuleID] = {
+        RuleID.T1_003,  # Token Ratio
+        RuleID.T1_005,  # Model Targeting
+        RuleID.T1_006,  # Context Exploitation
+    }
+
+    def apply_auth_profile(self) -> None:
+        """Zero out detectors that are dead weight on auth log data.
+
+        Redistributes their weight proportionally across the remaining
+        detectors so the total stays at 1.0.
+        """
+        freed_weight = 0.0
+        remaining_weight = 0.0
+
+        for d in self._detectors:
+            if d.RULE_ID in self.AUTH_ZERO_RULES:
+                freed_weight += d.WEIGHT
+                d.WEIGHT = 0.0
+            else:
+                remaining_weight += d.WEIGHT
+
+        if remaining_weight > 0 and freed_weight > 0:
+            scale = (remaining_weight + freed_weight) / remaining_weight
+            for d in self._detectors:
+                if d.RULE_ID not in self.AUTH_ZERO_RULES:
+                    d.WEIGHT = round(d.WEIGHT * scale, 4)
+
+        # Fix any floating-point drift
+        total = sum(d.WEIGHT for d in self._detectors)
+        if total > 0 and abs(total - 1.0) > 0.001:
+            for d in self._detectors:
+                d.WEIGHT = round(d.WEIGHT / total, 4)
+
+        logger.info(
+            "Auth profile: zeroed %d rules, freed %.2f weight, "
+            "redistributed across %d remaining rules",
+            len(self.AUTH_ZERO_RULES),
+            freed_weight,
+            sum(1 for d in self._detectors if d.WEIGHT > 0),
+        )
+
     # -- Loading --
 
     def load_traffic(self, filepath: str | Path) -> None:
