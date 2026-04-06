@@ -1,14 +1,16 @@
 """Tests for detection pipeline."""
 
+import json
 import pytest
 from datetime import datetime, timezone
+from pathlib import Path
 
-from detection.models import AccountProfile, RuleID, ThreatLevel
+from detection.models import AccountProfile, RuleID, ThreatLevel, ThreatAssessment
 from detection.pipeline import DetectionPipeline
 from detection.base import BaseDetector
 from detection.models import Tier
 
-from tests.conftest import make_events, build_profile
+from tests.conftest import make_events, make_event, build_profile
 
 
 class DummyDetector(BaseDetector):
@@ -103,3 +105,100 @@ class TestProfileEdgeCases:
         events = make_events(20, request_type="web")
         profile = build_profile(events)
         assert profile.api_ratio == 0.0
+
+
+def _write_events_jsonl(tmp_path: Path, events) -> Path:
+    """Write events to a JSONL file for async loading tests."""
+    filepath = tmp_path / "test_traffic.jsonl"
+    with filepath.open("w") as f:
+        for event in events:
+            f.write(event.model_dump_json() + "\n")
+    return filepath
+
+
+class TestAsyncPipeline:
+    """Tests for async generator methods on DetectionPipeline."""
+
+    @pytest.mark.asyncio
+    async def test_aiter_events_yields_all(self, tmp_path):
+        events = make_events(25)
+        filepath = _write_events_jsonl(tmp_path, events)
+
+        pipeline = DetectionPipeline()
+        collected = []
+        async for event in pipeline.aiter_events(filepath):
+            collected.append(event)
+
+        assert len(collected) == 25
+        assert all(e.account_id == "test_001" for e in collected)
+
+    @pytest.mark.asyncio
+    async def test_aiter_events_skips_malformed(self, tmp_path):
+        events = make_events(5)
+        filepath = tmp_path / "mixed.jsonl"
+        with filepath.open("w") as f:
+            f.write(events[0].model_dump_json() + "\n")
+            f.write("NOT VALID JSON\n")
+            f.write(events[1].model_dump_json() + "\n")
+
+        pipeline = DetectionPipeline()
+        collected = []
+        async for event in pipeline.aiter_events(filepath):
+            collected.append(event)
+
+        assert len(collected) == 2
+
+    @pytest.mark.asyncio
+    async def test_aload_traffic_builds_profiles(self, tmp_path):
+        events = make_events(50)
+        filepath = _write_events_jsonl(tmp_path, events)
+
+        pipeline = DetectionPipeline()
+        pipeline.register_default_detectors()
+        await pipeline.aload_traffic(filepath)
+
+        assert "test_001" in pipeline.profiles
+        assert pipeline.profiles["test_001"].total_events == 50
+        assert pipeline.baseline is not None
+
+    @pytest.mark.asyncio
+    async def test_ascore_all_yields_assessments(self, tmp_path):
+        events = make_events(50)
+        filepath = _write_events_jsonl(tmp_path, events)
+
+        pipeline = DetectionPipeline()
+        pipeline.register_default_detectors()
+        await pipeline.aload_traffic(filepath)
+
+        assessments = []
+        async for assessment in pipeline.ascore_all():
+            assessments.append(assessment)
+
+        assert len(assessments) == 1
+        assert isinstance(assessments[0], ThreatAssessment)
+        assert assessments[0].account_id == "test_001"
+        # Also stored in pipeline
+        assert "test_001" in pipeline.assessments
+
+    @pytest.mark.asyncio
+    async def test_async_matches_sync(self, tmp_path):
+        """Async and sync paths produce identical results."""
+        events = make_events(80)
+        filepath = _write_events_jsonl(tmp_path, events)
+
+        # Sync path
+        sync_pipeline = DetectionPipeline()
+        sync_pipeline.register_default_detectors()
+        sync_pipeline.load_traffic(str(filepath))
+        sync_pipeline.score_all()
+
+        # Async path
+        async_pipeline = DetectionPipeline()
+        async_pipeline.register_default_detectors()
+        await async_pipeline.aload_traffic(filepath)
+        async for _ in async_pipeline.ascore_all():
+            pass
+
+        sync_score = sync_pipeline.assessments["test_001"].composite_score
+        async_score = async_pipeline.assessments["test_001"].composite_score
+        assert sync_score == pytest.approx(async_score)
