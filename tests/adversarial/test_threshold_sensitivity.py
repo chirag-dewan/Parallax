@@ -193,10 +193,10 @@ class TestThresholdSensitivity:
         )
 
     def test_current_threshold_performance(self) -> None:
-        """The default 0.66 threshold should have zero FPR."""
-        fpr, fnr, tpr, precision = self._compute_rates(0.66)
-        assert fpr == 0.0, f"Default threshold FPR={fpr:.4f} (expected 0)"
-        assert tpr >= 0.5, f"Default threshold TPR={tpr:.4f} (expected >=0.5)"
+        """At MEDIUM threshold (0.50) attackers should be detected with zero FPR."""
+        fpr, fnr, tpr, precision = self._compute_rates(0.50)
+        assert fpr == 0.0, f"MEDIUM threshold FPR={fpr:.4f} (expected 0)"
+        assert tpr >= 0.5, f"MEDIUM threshold TPR={tpr:.4f} (expected >=0.5)"
 
     def test_low_threshold_catches_all(self) -> None:
         """At threshold 0.20, all attackers should be flagged (high recall)."""

@@ -373,13 +373,14 @@ class TestConversion:
                 f"{t},U1@DOM1,U2@DOM1,C1,{dst},{auth_type},{logon},LogOn,Success"
             )
 
-        # Attacker: rapid-fire, single destination, high failure rate,
-        # mechanical timing, single auth type
+        # Attacker: rapid-fire, lateral movement across many hosts,
+        # high failure rate, mechanical timing, single auth type
         for i in range(300):
             t = 50000 + i  # 1-second intervals (mechanical)
             fail = "Fail" if i % 2 == 0 else "Success"  # 50% failure rate
+            dst = f"C{(i % 50) + 100}"  # Lateral movement: 50 destinations
             auth_lines.append(
-                f"{t},U999@DOM1,U999@DOM1,C50,C2,NTLM,Network,LogOn,{fail}"
+                f"{t},U999@DOM1,U999@DOM1,C50,{dst},NTLM,Network,LogOn,{fail}"
             )
 
         auth_path = _write_auth(tmp_path, auth_lines)

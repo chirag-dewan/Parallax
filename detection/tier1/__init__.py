@@ -14,6 +14,7 @@ from detection.tier1.t1_007_error_pattern import ErrorPatternDetector
 from detection.tier1.t1_008_concurrent_sessions import (
     ConcurrentSessionsDetector,
 )
+from detection.tier1.t1_009_host_fanout import HostFanoutDetector
 
 __all__ = [
     "VolumeAnomalyDetector",
@@ -24,4 +25,5 @@ __all__ = [
     "ContextExploitationDetector",
     "ErrorPatternDetector",
     "ConcurrentSessionsDetector",
+    "HostFanoutDetector",
 ]

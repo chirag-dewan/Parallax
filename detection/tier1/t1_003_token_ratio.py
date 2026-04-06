@@ -12,7 +12,7 @@ class TokenRatioDetector(BaseDetector):
     RULE_NAME = "Token Ratio"
     TIER = Tier.TIER_1
     THRESHOLD = 0.5
-    WEIGHT = 0.12
+    WEIGHT = 0.09
     min_events = 5
 
     def _compute_score(

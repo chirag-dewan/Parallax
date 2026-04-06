@@ -56,7 +56,7 @@ class DetectionPipeline:
         self._detectors.append(detector)
 
     def register_default_detectors(self) -> None:
-        """Register all 14 detection rules."""
+        """Register all 15 detection rules."""
         from detection.tier1 import (
             VolumeAnomalyDetector,
             AutomationSignatureDetector,
@@ -66,6 +66,7 @@ class DetectionPipeline:
             ContextExploitationDetector,
             ErrorPatternDetector,
             ConcurrentSessionsDetector,
+            HostFanoutDetector,
         )
         from detection.tier2 import (
             DistributionDivergenceDetector,
@@ -85,6 +86,7 @@ class DetectionPipeline:
             ContextExploitationDetector(),
             ErrorPatternDetector(),
             ConcurrentSessionsDetector(),
+            HostFanoutDetector(),
             DistributionDivergenceDetector(),
             EntropyAnalysisDetector(),
             CrossAccountCorrelationDetector(),

@@ -15,7 +15,7 @@ class ModelTargetingDetector(BaseDetector):
     RULE_NAME = "Model Targeting"
     TIER = Tier.TIER_1
     THRESHOLD = 0.5
-    WEIGHT = 0.06
+    WEIGHT = 0.02
     min_events = 10
 
     def _compute_score(

@@ -74,7 +74,7 @@ class TestThreatLevel:
 
 
 class TestRuleID:
-    def test_all_14_rules(self):
-        assert len(RuleID) == 14
+    def test_all_15_rules(self):
+        assert len(RuleID) == 15
         assert RuleID.T1_001.value == "T1-001"
         assert RuleID.T2_006.value == "T2-006"
