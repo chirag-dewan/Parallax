@@ -12,9 +12,9 @@ Privacy-preserving behavioral threat detection for AI platforms. Detects abuse t
 - `detection/utils.py` — sigmoid_normalize, coefficient_of_variation, linear_scale
 - `detection/pipeline.py` — DetectionPipeline orchestrator (loads traffic, builds profiles, runs detectors, computes composite scores)
 - `detection/cli.py` + `detection/__main__.py` — CLI entry point (`python -m detection data/traffic.jsonl`)
-- `detection/tier1/` — 8 Tier 1 detectors (T1-001 through T1-008, 72% total weight)
+- `detection/tier1/` — 10 Tier 1 detectors (T1-001 through T1-010, 72% total weight)
 - `detection/tier2/` — 6 Tier 2 detectors (T2-001 through T2-006, 28% total weight)
-- `app.py` — Flask API server (GET /api/accounts, GET /api/account/<id>)
+- `app.py` — Flask API server (GET /api/accounts, GET /api/account/<id>, GET /api/evaluation)
 - `traffic_generator.py` — Synthetic traffic generator (3 archetypes: normal_user, power_developer, attacker)
 - `engine.py` — Legacy scoring engine (predates the modular detection/ package)
 
@@ -22,7 +22,7 @@ Privacy-preserving behavioral threat detection for AI platforms. Detects abuse t
 1. JSONL events → `DetectionPipeline.load_traffic()` → parsed as `APIEvent` (Pydantic)
 2. Events grouped by account → `AccountProfile` built per account
 3. `PopulationBaseline` computed from all profiles (feeds Tier 2 detectors)
-4. Each of 14 detectors runs independently → `DetectionResult` per rule per account
+4. Each of 16 detectors runs independently → `DetectionResult` per rule per account
 5. Weighted composite: `Σ(score × weight × confidence) / Σ(weight)` → `ThreatAssessment`
 6. Threat levels: NONE (<0.25), LOW (0.25–0.49), MEDIUM (0.50–0.69), HIGH (0.70–0.84), CRITICAL (0.85+)
 
@@ -35,11 +35,11 @@ Escalation recommended above 0.66.
 ## Current State
 
 ### What works
-- All 14 detection rules implemented and tested (8 Tier 1, 6 Tier 2)
+- All 16 detection rules implemented and tested (10 Tier 1, 6 Tier 2)
 - Pipeline orchestration: load → profile → detect → score
 - Population baselines for cross-account statistical analysis
 - Flask API with per-rule breakdowns
-- 92 tests, 94% coverage
+- 136 tests
 - Adversarial evaluation suite (4 scenarios: blended behavior, low-and-slow, signal ablation, threshold sensitivity)
 - Perfect class separation at threshold 0.40 on standard archetypes (0 FP, 0 FN)
 

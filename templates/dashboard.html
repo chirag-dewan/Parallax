@@ -3,14 +3,499 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PARALLAX Dashboard</title>
+    <title>PARALLAX — Evaluation Results</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+
+        :root {
+            --bg: #0a0a0a;
+            --surface: #111111;
+            --border: #1a1a1a;
+            --text: #c0c0c0;
+            --text-dim: #606060;
+            --green: #4ade80;
+            --green-dim: #166534;
+            --amber: #fbbf24;
+            --red: #ef4444;
+            --red-dim: #7f1d1d;
+            --blue: #60a5fa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--green);
+            letter-spacing: 0.15em;
+        }
+
+        h1 span { color: var(--text-dim); font-weight: 300; }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        h2 {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--amber);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+            margin-top: 2.5rem;
+        }
+
+        h2:first-of-type { margin-top: 0; }
+
+        .verdict {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .verdict .score {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--amber);
+        }
+
+        .verdict .label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1rem;
+        }
+
+        .stat .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .stat .label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-top: 0.25rem;
+        }
+
+        .positive { color: var(--green); }
+        .negative { color: var(--red); }
+        .neutral { color: var(--text-dim); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-bottom: 2rem;
+        }
+
+        th {
+            text-align: left;
+            color: var(--text-dim);
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 0.7rem;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th:not(:first-child) { text-align: right; }
+
+        td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        td:not(:first-child) { text-align: right; }
+
+        tr:hover td { background: var(--surface); }
+
+        .bar-cell {
+            position: relative;
+            padding-right: 4rem;
+        }
+
+        .bar {
+            position: absolute;
+            right: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 4px;
+            background: var(--green-dim);
+            max-width: 60px;
+        }
+
+        .bar.neg { background: var(--red-dim); }
+
+        .narrative {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+
+        .narrative strong { color: var(--text); font-weight: 500; }
+        .narrative em { color: var(--amber); font-style: normal; }
+
+        .confusion {
+            display: grid;
+            grid-template-columns: auto 1fr 1fr;
+            gap: 0;
+            max-width: 320px;
+            margin-bottom: 2rem;
+            font-size: 0.8rem;
+        }
+
+        .confusion div {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .confusion .header {
+            background: var(--surface);
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .confusion .tp { color: var(--green); }
+        .confusion .fp { color: var(--red); }
+        .confusion .fn { color: var(--amber); }
+        .confusion .tn { color: var(--text-dim); }
+
+        .separator {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 2.5rem 0;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            padding: 0.15rem 0.4rem;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .tag.working { border-color: var(--green-dim); color: var(--green); }
+        .tag.hurting { border-color: var(--red-dim); color: var(--red); }
+
+        a { color: var(--blue); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .api-links {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+        }
+
+        .api-links a { margin-right: 1.5rem; }
+
+        .footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+        }
+    </style>
 </head>
 <body>
-    <h1>PARALLAX Dashboard</h1>
-    <p>Flask is working. API endpoints:</p>
-    <ul>
-        <li><a href="/api/accounts">/api/accounts</a></li>
-        <li><a href="/api/account/attacker_0001">/api/account/attacker_0001</a></li>
-    </ul>
+    <div class="container">
+        <header>
+            <h1>PARALLAX <span>/ LANL v3 Evaluation</span></h1>
+            <div class="subtitle">500 accounts &middot; 16.9M events &middot; windowed scoring (4h / 1h stride) &middot; auth profile</div>
+        </header>
+
+        <h2>Verdict</h2>
+
+        <div class="verdict">
+            <div class="label">ROC AUC</div>
+            <div class="score">0.68</div>
+        </div>
+
+        <div class="narrative">
+            <strong>Mediocre.</strong> The system separates compromised from normal accounts
+            with AUC 0.68 &mdash; better than chance (0.50) but not operationally useful.
+            At the best threshold (0.77), precision and recall are both <em>~48%</em>:
+            for every real compromise caught, there's a false positive. Half the compromised
+            accounts are missed entirely.
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="value">0.4855</div>
+                <div class="label">Best F1 (threshold 0.77)</div>
+            </div>
+            <div class="stat">
+                <div class="value">0.4884</div>
+                <div class="label">Precision</div>
+            </div>
+            <div class="stat">
+                <div class="value">0.4828</div>
+                <div class="label">Recall</div>
+            </div>
+            <div class="stat">
+                <div class="value">+0.115</div>
+                <div class="label">Mean Separation</div>
+            </div>
+        </div>
+
+        <h2>Confusion Matrix @ 0.77</h2>
+
+        <div class="confusion">
+            <div class="header"></div>
+            <div class="header">Pred +</div>
+            <div class="header">Pred &minus;</div>
+            <div class="header">Actual +</div>
+            <div class="tp"><strong>42</strong> TP</div>
+            <div class="fn"><strong>45</strong> FN</div>
+            <div class="header">Actual &minus;</div>
+            <div class="fp"><strong>44</strong> FP</div>
+            <div class="tn"><strong>369</strong> TN</div>
+        </div>
+
+        <div class="narrative">
+            87 compromised users, 413 normal. At threshold 0.77 we catch 42 of 87
+            compromised accounts but also flag 44 normals. The <em>45 missed compromises</em>
+            are the real problem &mdash; attackers who look indistinguishable from normal
+            auth patterns with current signals.
+        </div>
+
+        <hr class="separator">
+
+        <h2>Score Distributions</h2>
+
+        <div class="stat-grid">
+            <div class="stat">
+                <div class="value positive">0.5986</div>
+                <div class="label">Compromised Mean</div>
+            </div>
+            <div class="stat">
+                <div class="value">0.4832</div>
+                <div class="label">Normal Mean</div>
+            </div>
+            <div class="stat">
+                <div class="value negative">0.2823</div>
+                <div class="label">Compromised Std</div>
+            </div>
+            <div class="stat">
+                <div class="value">0.2491</div>
+                <div class="label">Normal Std</div>
+            </div>
+        </div>
+
+        <div class="narrative">
+            Both distributions are wide (std &gt; 0.24) with heavy overlap. The compromised
+            min is <em>0.00</em> and the normal max is <em>0.95</em> &mdash; there is no
+            clean decision boundary. This is fundamental: auth metadata alone doesn't carry
+            enough signal to reliably separate these populations.
+        </div>
+
+        <hr class="separator">
+
+        <h2>Detector Contribution</h2>
+
+        <div class="narrative">
+            Only 5 of 15 detectors have positive delta (compromised scores higher than normal).
+            The auth profile zeroes the rest. Even so, the working signals are weak except
+            for Behavioral Shift.
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Detector</th>
+                    <th>Weight</th>
+                    <th>Comp</th>
+                    <th>Norm</th>
+                    <th>Delta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>T2-006 Behavioral Shift <span class="tag working">working</span></td>
+                    <td>0.30</td>
+                    <td>0.7143</td>
+                    <td>0.4277</td>
+                    <td class="positive">+0.287</td>
+                </tr>
+                <tr>
+                    <td>T1-009 Host Fan-Out <span class="tag working">working</span></td>
+                    <td>0.25</td>
+                    <td>0.7873</td>
+                    <td>0.6561</td>
+                    <td class="positive">+0.131</td>
+                </tr>
+                <tr>
+                    <td>T1-008 Concurrent Sessions <span class="tag working">working</span></td>
+                    <td>0.20</td>
+                    <td>0.8231</td>
+                    <td>0.7721</td>
+                    <td class="positive">+0.051</td>
+                </tr>
+                <tr>
+                    <td>T1-007 Error Pattern <span class="tag working">working</span></td>
+                    <td>0.15</td>
+                    <td>0.1802</td>
+                    <td>0.1726</td>
+                    <td class="positive">+0.008</td>
+                </tr>
+                <tr>
+                    <td>T1-004 Session Anomaly <span class="tag working">working</span></td>
+                    <td>0.10</td>
+                    <td>0.1419</td>
+                    <td>0.1058</td>
+                    <td class="positive">+0.036</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Zeroed Detectors (anti-correlated)</th>
+                    <th></th>
+                    <th>Comp</th>
+                    <th>Norm</th>
+                    <th>Delta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>T2-001 Distribution Divergence <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.5617</td>
+                    <td>0.7571</td>
+                    <td class="negative">-0.195</td>
+                </tr>
+                <tr>
+                    <td>T2-002 Entropy Analysis <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.3142</td>
+                    <td>0.4968</td>
+                    <td class="negative">-0.183</td>
+                </tr>
+                <tr>
+                    <td>T1-006 Context Exploitation <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.0963</td>
+                    <td>0.2736</td>
+                    <td class="negative">-0.177</td>
+                </tr>
+                <tr>
+                    <td>T1-001 Volume Anomaly <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.8998</td>
+                    <td>1.0000</td>
+                    <td class="negative">-0.100</td>
+                </tr>
+                <tr>
+                    <td>T2-005 Temporal Clustering <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.0000</td>
+                    <td>0.0856</td>
+                    <td class="negative">-0.086</td>
+                </tr>
+                <tr>
+                    <td>T2-003 Cross-Account <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.8851</td>
+                    <td>0.9637</td>
+                    <td class="negative">-0.079</td>
+                </tr>
+                <tr>
+                    <td>T2-004 Power Law <span class="tag hurting">hurting</span></td>
+                    <td>0.00</td>
+                    <td>0.1451</td>
+                    <td>0.2008</td>
+                    <td class="negative">-0.056</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <hr class="separator">
+
+        <h2>What This Means</h2>
+
+        <div class="narrative">
+            <strong>Behavioral Shift carries the system.</strong> T2-006 contributes +0.287
+            delta &mdash; more than all other detectors combined (+0.226). Without it, the
+            system would be near-random. This is a single point of failure: if an attacker
+            maintains consistent behavior over time, the primary signal vanishes.
+            <br><br>
+            <strong>Host Fan-Out is the second leg.</strong> T1-009 at +0.131 detects lateral
+            movement through destination diversity. It works because compromised users in
+            LANL touch more hosts. But the 9-topic-bucket ceiling in the adapter caps
+            resolution &mdash; with real host-level data this could be stronger.
+            <br><br>
+            <strong>Everything else is noise.</strong> T1-008, T1-007, T1-004 contribute
+            +0.008 to +0.051 &mdash; barely above zero. Seven detectors are actively
+            anti-correlated: normal users trigger them more than compromised ones. These
+            were designed for API abuse patterns (token ratios, model targeting, automation
+            signatures) that don't map to authentication data.
+            <br><br>
+            <strong>The real gap:</strong> no content signal, no network flow data, no
+            process telemetry. Auth metadata alone is a narrow aperture. The next gain
+            comes from fusing additional data sources (flows, process starts, DNS), not
+            from tuning these 5 detectors.
+        </div>
+
+        <hr class="separator">
+
+        <h2>API Endpoints</h2>
+
+        <div class="api-links">
+            <a href="/api/accounts">/api/accounts</a>
+            <a href="/api/evaluation">/api/evaluation</a>
+        </div>
+
+        <div class="footer">
+            PARALLAX &middot; Privacy-preserving behavioral threat detection &middot;
+            LANL Cyber1 dataset (CC0) &middot; 500 sampled accounts
+        </div>
+    </div>
 </body>
 </html>

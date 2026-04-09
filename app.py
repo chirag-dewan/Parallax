@@ -3,6 +3,8 @@ PARALLAX Flask Application
 """
 
 import logging
+import os
+from pathlib import Path
 
 from flask import Flask, jsonify, render_template
 
@@ -23,7 +25,7 @@ def load_traffic_data() -> None:
     """Load traffic.jsonl and run detection pipeline."""
     try:
         pipeline.register_default_detectors()
-        pipeline.load_traffic("data/traffic.jsonl")
+        pipeline.load_traffic(str(Path(__file__).resolve().parent / "data" / "traffic.jsonl"))
         pipeline.score_all()
         logger.info("Scored %d accounts", len(pipeline.assessments))
     except FileNotFoundError:
@@ -112,8 +114,34 @@ def get_account_detail(account_id):
     )
 
 
+@app.route("/api/evaluation")
+def get_evaluation():
+    """Returns LANL v3 evaluation results from CSV."""
+    import csv
+
+    csv_path = Path(__file__).resolve().parent / "data" / "lanl" / "evaluation_v3.csv"
+    if not csv_path.exists():
+        return jsonify({"error": "evaluation_v3.csv not found"}), 404
+
+    rows = []
+    with csv_path.open() as f:
+        for row in csv.DictReader(f):
+            rows.append({
+                "account_id": row["account_id"],
+                "is_compromised": int(row["is_compromised"]),
+                "archetype": row["archetype"],
+                "peak_score": float(row["peak_score"]),
+                "windows_evaluated": int(row["windows_evaluated"]),
+            })
+    return jsonify(rows)
+
+
 if __name__ == "__main__":
     load_traffic_data()
     logger.info("PARALLAX Dashboard: http://localhost:5000")
     logger.info("API: http://localhost:5000/api/accounts")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(
+        debug=os.environ.get("FLASK_DEBUG", "0") == "1",
+        host=os.environ.get("FLASK_HOST", "127.0.0.1"),
+        port=int(os.environ.get("FLASK_PORT", "5000")),
+    )

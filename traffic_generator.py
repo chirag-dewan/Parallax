@@ -14,10 +14,9 @@ import argparse
 import json
 import random
 import sys
-import math
+import os
 from dataclasses import dataclass, asdict
-from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 
@@ -78,6 +77,7 @@ class UserProfile:
         self.requests_made_today = 0
         self.rate_limits_hit_today = 0
         self.last_request_time = None
+        self._topic_sequence = 0
 
         # Set archetype-specific parameters with noise
         if archetype == UserArchetype.NORMAL:
@@ -163,9 +163,6 @@ class UserProfile:
         """Select topic based on entropy level"""
         if self.archetype == UserArchetype.ATTACKER:
             # Low entropy: sequential sweep through categories
-            if not hasattr(self, '_topic_sequence'):
-                self._topic_sequence = 0
-
             attack_topics = [TopicCategory.EXTRACTION, TopicCategory.JAILBREAK,
                            TopicCategory.SCRAPING, TopicCategory.EXTRACTION]
             topic = attack_topics[self._topic_sequence % len(attack_topics)]
@@ -231,7 +228,7 @@ class TrafficGenerator:
                  num_normal: int = 50,
                  num_power: int = 15,
                  num_attackers: int = 10):
-        self.users: List[UserProfile] = []
+        self.users: list[UserProfile] = []
 
         # Create user profiles
         for i in range(num_normal):
@@ -250,10 +247,10 @@ class TrafficGenerator:
 
     def generate_traffic(self, hours: int, output_file: str):
         """Generate traffic for specified duration"""
-        start_time = datetime.utcnow() - timedelta(hours=hours)
-        end_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        end_time = datetime.now(timezone.utc)
 
-        events: List[APIEvent] = []
+        events: list[APIEvent] = []
 
         print(f"[+] Generating {hours} hours of traffic...", file=sys.stderr)
         print(f"    Start: {start_time}", file=sys.stderr)
@@ -279,7 +276,7 @@ class TrafficGenerator:
         # Print statistics
         self._print_statistics(events)
 
-    def _generate_user_traffic(self, user: UserProfile, start_time: datetime, end_time: datetime) -> List[APIEvent]:
+    def _generate_user_traffic(self, user: UserProfile, start_time: datetime, end_time: datetime) -> list[APIEvent]:
         """Generate traffic for a single user"""
         events = []
         current_time = start_time + timedelta(hours=random.uniform(0, 2))  # Stagger start
@@ -389,7 +386,7 @@ class TrafficGenerator:
             model=model
         )
 
-    def _print_statistics(self, events: List[APIEvent]):
+    def _print_statistics(self, events: list[APIEvent]):
         """Print traffic statistics"""
         print("\n" + "="*60, file=sys.stderr)
         print("TRAFFIC STATISTICS", file=sys.stderr)
@@ -462,7 +459,6 @@ Examples:
         print(f"[+] Random seed: {args.seed}", file=sys.stderr)
 
     # Create output directory if needed
-    import os
     os.makedirs(os.path.dirname(args.output) if os.path.dirname(args.output) else '.', exist_ok=True)
 
     # Generate traffic
@@ -474,7 +470,7 @@ Examples:
 
     generator.generate_traffic(args.hours, args.output)
 
-    print(f"\n✅ Traffic generation complete!", file=sys.stderr)
+    print(f"\n[+] Traffic generation complete!", file=sys.stderr)
 
 
 if __name__ == '__main__':

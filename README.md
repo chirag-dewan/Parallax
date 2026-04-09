@@ -12,9 +12,9 @@ PARALLAX solves this by detecting adversarial behavior through behavioral patter
 
 ## Detection Architecture
 
-PARALLAX implements 15 detection rules across two tiers, each running as an independent detector with weighted composite scoring.
+PARALLAX implements 16 detection rules across two tiers, each running as an independent detector with weighted composite scoring.
 
-### Tier 1 — Behavioral Telemetry (9 rules, 72% weight)
+### Tier 1 — Behavioral Telemetry (10 rules, 72% weight)
 
 | Rule | Signal | Weight | What It Catches |
 |------|--------|--------|----------------|
@@ -27,6 +27,7 @@ PARALLAX implements 15 detection rules across two tiers, each running as an inde
 | T1-007 | Error Pattern | 0.08 | Safety trigger rate + mechanical retries |
 | T1-008 | Concurrent Sessions | 0.06 | Sweep-line max concurrent conversations |
 | T1-009 | Host Fan-Out | 0.10 | Destination diversity in sliding time windows |
+| T1-010 | Data Transfer Anomaly | 0.00* | Exfiltration via abnormal byte volume (auth profile only) |
 
 ### Tier 2 — Statistical Analysis (6 rules, 28% weight)
 
@@ -148,22 +149,24 @@ detection/
   pipeline.py            # DetectionPipeline orchestrator (batch + windowed + auth profile)
   cli.py                 # CLI entry point
   __main__.py            # python -m detection support
-  tier1/                 # 9 Tier 1 detector implementations (T1-001 through T1-009)
+  tier1/                 # 10 Tier 1 detector implementations (T1-001 through T1-010)
   tier2/                 # 6 Tier 2 detector implementations (T2-001 through T2-006)
 tests/
   conftest.py            # Shared fixtures (make_event, build_profile)
   test_models.py         # Data model tests
   test_pipeline.py       # Pipeline orchestration tests
-  tier1/                 # 9 Tier 1 detector test files
+  tier1/                 # 10 Tier 1 detector test files
   tier2/                 # 6 Tier 2 detector test files
   adversarial/           # 4 adversarial evaluation scenarios
 lanl_adapter.py          # LANL Cyber1 -> PARALLAX event converter
 scripts/
   lanl_evaluate.py       # LANL evaluation pipeline (CSV dump, threshold analysis, ROC AUC)
+  inject_flow_data.py    # Join LANL flow data into enriched auth events
   download_lanl.sh       # LANL dataset download instructions
 docs/
   lanl_evaluation_v2.md  # LANL v2 evaluation (all detectors — AUC 0.48)
   lanl_evaluation_v3.md  # LANL v3 evaluation (signal-only — AUC 0.68)
+  flow_enrichment_results.md  # Flow data enrichment results
 app.py                   # Flask API server
 traffic_generator.py     # Synthetic data generator
 templates/dashboard.html # Dashboard UI
@@ -216,9 +219,34 @@ python scripts/lanl_evaluate.py data/lanl/parallax_events.jsonl \
   --output data/lanl/evaluation.csv
 ```
 
+<!-- AUTO-GENERATED: commands -->
+## Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `python traffic_generator.py` | Generate synthetic traffic (3 archetypes) |
+| `python -m detection data/traffic.jsonl` | Run batch detection via CLI |
+| `python -m detection <file> --windowed --profile auth` | Windowed scoring with auth profile |
+| `python app.py` | Start Flask API server (port 5000) |
+| `pytest tests/ --cov=detection` | Run test suite with coverage |
+| `python lanl_adapter.py --auth ... --redteam ...` | Convert LANL auth events to PARALLAX format |
+| `python scripts/lanl_evaluate.py <file> --redteam ...` | Run LANL evaluation with threshold analysis |
+| `python scripts/inject_flow_data.py` | Join LANL flow data into enriched auth events |
+<!-- /AUTO-GENERATED: commands -->
+
+<!-- AUTO-GENERATED: environment -->
+## Environment Variables
+
+| Variable | Required | Description | Default |
+|----------|----------|-------------|---------|
+| `FLASK_DEBUG` | No | Enable Flask debug mode | `0` |
+| `FLASK_HOST` | No | Flask bind address | `127.0.0.1` |
+| `FLASK_PORT` | No | Flask listen port | `5000` |
+<!-- /AUTO-GENERATED: environment -->
+
 ## Test Coverage
 
-112 tests across all detection modules.
+136 tests across all detection modules.
 
 ```
 pytest tests/ -v --cov=detection --cov-report=term-missing
@@ -230,7 +258,10 @@ pytest tests/ -v --cov=detection --cov-report=term-missing
 Returns all scored accounts with composite scores, threat levels, and triggered rule counts.
 
 ### `GET /api/account/<account_id>`
-Returns full per-rule breakdown with 15 detection results, diagnostic details, and top contributing signals.
+Returns full per-rule breakdown with 16 detection results, diagnostic details, and top contributing signals.
+
+### `GET /api/evaluation`
+Returns LANL v3 evaluation results from `data/lanl/evaluation_v3.csv` (requires prior evaluation run).
 
 ## Known Limitations
 
@@ -243,17 +274,18 @@ Returns full per-rule breakdown with 15 detection results, diagnostic details, a
 
 ## Roadmap
 
-- [x] 15-rule detection engine (Tier 1 + Tier 2)
+- [x] 16-rule detection engine (Tier 1 + Tier 2)
 - [x] Weighted composite scoring with confidence
 - [x] Population baselines for cross-account analysis
 - [x] Synthetic traffic generator (3 archetypes)
 - [x] Flask API with per-rule breakdowns
 - [x] Adversarial evaluation suite (4 scenarios)
-- [x] 112 tests
+- [x] 136 tests
 - [x] Windowed temporal scoring (sliding windows with peak detection)
 - [x] Auth log profile mode (LANL-calibrated weights)
 - [x] LANL Cyber1 adapter and evaluation (AUC 0.68)
 - [x] T1-009 Host Fan-Out detector for lateral movement
+- [x] T1-010 Data Transfer Anomaly detector with flow enrichment
 - [ ] Auth failure sequence detector (credential spraying)
 - [ ] Tier 0 signals (account age curve, IP clustering)
 - [ ] Tier 3 signals (content-adjacent analysis)
