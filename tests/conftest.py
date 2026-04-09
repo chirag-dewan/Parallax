@@ -29,6 +29,8 @@ def make_event(
     response_time_ms: int = 500,
     http_status: int = 200,
     model: str = "claude-3-sonnet",
+    bytes_transferred: int = 0,
+    connection_duration_sec: int = 0,
 ) -> APIEvent:
     if timestamp is None:
         timestamp = datetime.now(timezone.utc)
@@ -51,6 +53,8 @@ def make_event(
         response_time_ms=response_time_ms,
         http_status=http_status,
         model=model,
+        bytes_transferred=bytes_transferred,
+        connection_duration_sec=connection_duration_sec,
     )
 
 

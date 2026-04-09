@@ -29,6 +29,7 @@ class RuleID(str, enum.Enum):
     T1_007 = "T1-007"
     T1_008 = "T1-008"
     T1_009 = "T1-009"
+    T1_010 = "T1-010"
     T2_001 = "T2-001"
     T2_002 = "T2-002"
     T2_003 = "T2-003"
@@ -66,6 +67,8 @@ class APIEvent(BaseModel):
     response_time_ms: int
     http_status: int
     model: str
+    bytes_transferred: int = 0
+    connection_duration_sec: int = 0
 
     @field_validator("timestamp", mode="before")
     @classmethod
@@ -129,6 +132,13 @@ class AccountProfile(BaseModel):
     # Topics
     topic_counts: dict[str, int]
     unique_topic_count: int
+
+    # Flow enrichment (populated when flow data available)
+    bytes_transferred_list: list[int] = Field(default_factory=list)
+    total_bytes_transferred: int = 0
+    avg_bytes_per_event: float = 0.0
+    connection_durations_sec: list[int] = Field(default_factory=list)
+    avg_connection_duration_sec: float = 0.0
 
     model_config = {"arbitrary_types_allowed": True}
 

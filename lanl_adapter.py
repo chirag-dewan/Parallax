@@ -67,7 +67,10 @@ def _open_file(path: str | Path) -> Iterator[str]:
     path = Path(path)
     if path.suffix == ".gz":
         with gzip.open(path, "rt", encoding="utf-8", errors="replace") as f:
-            yield from f
+            try:
+                yield from f
+            except EOFError:
+                logger.warning("Truncated gzip file %s — processing partial data", path)
     else:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             yield from f
@@ -204,6 +207,33 @@ def build_flow_index(
     return dict(index)
 
 
+def build_flow_pair_index(
+    path: str | Path,
+    target_pairs: set[tuple[str, str]] | None = None,
+) -> dict[tuple[str, str], list[dict]]:
+    """Build flow index keyed by (src_computer, dst_computer) for auth join.
+
+    Each entry is sorted by time for efficient window lookups.
+    """
+    index: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    count = 0
+    for event in iter_flow_events(path):
+        pair = (event["src_computer"], event["dst_computer"])
+        if target_pairs and pair not in target_pairs:
+            continue
+        index[pair].append(event)
+        count += 1
+        if count % 5_000_000 == 0:
+            logger.info("  flow pair index: %d events ingested", count)
+
+    # Sort each pair's flows by time for binary search
+    for flows in index.values():
+        flows.sort(key=lambda f: f["time"])
+
+    logger.info("Flow pair index: %d events across %d pairs", count, len(index))
+    return dict(index)
+
+
 # ---------------------------------------------------------------------------
 # Profile Builder
 # ---------------------------------------------------------------------------
@@ -216,10 +246,12 @@ class LANLProfileBuilder:
         redteam_labels: dict[str, set[int]],
         proc_index: dict[str, list[dict]] | None = None,
         flow_index: dict[str, list[dict]] | None = None,
+        flow_pair_index: dict[tuple[str, str], list[dict]] | None = None,
     ) -> None:
         self.redteam = redteam_labels
         self.proc_index = proc_index or {}
         self.flow_index = flow_index or {}
+        self.flow_pair_index = flow_pair_index or {}
 
     def is_compromised(self, user: str) -> bool:
         """Check if user appears in red team labels at any time."""
@@ -265,6 +297,43 @@ class LANLProfileBuilder:
         # Estimate input as fraction of output (requests are smaller)
         tokens_in = min(TOKEN_MAX, max(50, tokens_out // 4))
         return tokens_in, tokens_out
+
+    def get_flow_for_auth(
+        self, src_computer: str, dst_computer: str, time: int, window: int = 60
+    ) -> tuple[int, int]:
+        """Get (bytes_transferred, connection_duration_sec) for an auth event.
+
+        Joins auth with flow data on (src_computer, dst_computer) within
+        a time window. Returns summed bytes and max duration from matching flows.
+        """
+        pair = (src_computer, dst_computer)
+        flows = self.flow_pair_index.get(pair, [])
+        if not flows:
+            return 0, 0
+
+        total_bytes = 0
+        max_duration = 0
+        matched = 0
+
+        # Binary search for start of window (flows are sorted by time)
+        lo, hi = 0, len(flows)
+        target = time - window
+        while lo < hi:
+            mid = (lo + hi) // 2
+            if flows[mid]["time"] < target:
+                lo = mid + 1
+            else:
+                hi = mid
+
+        for i in range(lo, len(flows)):
+            f = flows[i]
+            if f["time"] > time + window:
+                break
+            total_bytes += f["bytes"]
+            max_duration = max(max_duration, f["duration"])
+            matched += 1
+
+        return total_bytes, max_duration
 
     def get_topic_from_proc(self, user: str, time: int, window: int = 300) -> str | None:
         """Get dominant process near this time as topic proxy."""
@@ -419,6 +488,11 @@ def convert_auth_to_parallax(
                 event["src_computer"], t
             )
 
+            # Flow enrichment: bytes transferred and connection duration
+            bytes_transferred, connection_duration_sec = builder.get_flow_for_auth(
+                event["src_computer"], dst, t
+            )
+
             # Topic from proc or destination
             topic = builder.get_topic_from_proc(user, t)
             if topic is None:
@@ -471,6 +545,8 @@ def convert_auth_to_parallax(
                 "response_time_ms": 500,  # No latency data in LANL
                 "http_status": http_status,
                 "model": model,
+                "bytes_transferred": bytes_transferred,
+                "connection_duration_sec": connection_duration_sec,
             }
 
             out.write(json.dumps(api_event) + "\n")
@@ -528,14 +604,18 @@ def main() -> None:
         logger.info("Building process enrichment index...")
         proc_index = build_proc_index(args.proc)
 
+    flow_pair_index = None
     if args.flows:
         logger.info("Building flow enrichment index...")
         flow_index = build_flow_index(args.flows)
+        logger.info("Building flow pair index for auth join...")
+        flow_pair_index = build_flow_pair_index(args.flows)
 
     builder = LANLProfileBuilder(
         redteam_labels=redteam,
         proc_index=proc_index,
         flow_index=flow_index,
+        flow_pair_index=flow_pair_index,
     )
 
     # Convert

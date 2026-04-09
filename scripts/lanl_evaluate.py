@@ -41,6 +41,8 @@ def main() -> None:
     parser.add_argument("--output", default="data/lanl/evaluation_v2.csv")
     parser.add_argument("--window-hours", type=float, default=4.0)
     parser.add_argument("--stride-hours", type=float, default=1.0)
+    parser.add_argument("--flow-enriched", action="store_true",
+                        help="Activate T1-010 with flow-enriched weight profile")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 
@@ -58,7 +60,7 @@ def main() -> None:
 
     pipeline = DetectionPipeline()
     pipeline.register_default_detectors()
-    pipeline.apply_auth_profile()
+    pipeline.apply_auth_profile(flow_enriched=args.flow_enriched)
     pipeline.load_traffic(args.traffic_file)
 
     # Windowed scoring

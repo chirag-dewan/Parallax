@@ -56,7 +56,7 @@ class DetectionPipeline:
         self._detectors.append(detector)
 
     def register_default_detectors(self) -> None:
-        """Register all 15 detection rules."""
+        """Register all 16 detection rules."""
         from detection.tier1 import (
             VolumeAnomalyDetector,
             AutomationSignatureDetector,
@@ -67,6 +67,7 @@ class DetectionPipeline:
             ErrorPatternDetector,
             ConcurrentSessionsDetector,
             HostFanoutDetector,
+            DataTransferAnomalyDetector,
         )
         from detection.tier2 import (
             DistributionDivergenceDetector,
@@ -87,6 +88,7 @@ class DetectionPipeline:
             ErrorPatternDetector(),
             ConcurrentSessionsDetector(),
             HostFanoutDetector(),
+            DataTransferAnomalyDetector(),
             DistributionDivergenceDetector(),
             EntropyAnalysisDetector(),
             CrossAccountCorrelationDetector(),
@@ -112,26 +114,42 @@ class DetectionPipeline:
         RuleID.T1_004: 0.10,  # Session Anomaly     (+0.04 delta)
     }
 
-    def apply_auth_profile(self) -> None:
+    # Auth profile with flow enrichment: T1-010 gets 10% weight,
+    # redistributed proportionally from existing detectors.
+    AUTH_WEIGHTS_FLOW: dict[RuleID, float] = {
+        RuleID.T2_006: 0.27,  # Behavioral Shift
+        RuleID.T1_009: 0.22,  # Host Fan-Out
+        RuleID.T1_008: 0.18,  # Concurrent Sessions
+        RuleID.T1_007: 0.13,  # Error Pattern
+        RuleID.T1_004: 0.10,  # Session Anomaly
+        RuleID.T1_010: 0.10,  # Data Transfer Anomaly (flow-enriched)
+    }
+
+    def apply_auth_profile(self, flow_enriched: bool = False) -> None:
         """Reconfigure weights for auth log data (LANL / AD logs).
 
         Zeroes detectors that are dead-weight or anti-correlated with
-        compromise on auth data.  Sets explicit weights on the 5
-        detectors with positive signal, proportional to their measured
-        delta from the LANL v2 evaluation.
+        compromise on auth data.  Sets explicit weights on the 5 (or 6
+        with flow enrichment) detectors with positive signal.
+
+        Args:
+            flow_enriched: When True, activates T1-010 DataTransferAnomaly
+                with weight redistributed from existing detectors.
         """
+        weights = self.AUTH_WEIGHTS_FLOW if flow_enriched else self.AUTH_WEIGHTS
         zeroed = 0
         for d in self._detectors:
-            if d.RULE_ID in self.AUTH_WEIGHTS:
-                d.WEIGHT = self.AUTH_WEIGHTS[d.RULE_ID]
+            if d.RULE_ID in weights:
+                d.WEIGHT = weights[d.RULE_ID]
             else:
                 d.WEIGHT = 0.0
                 zeroed += 1
 
         logger.info(
-            "Auth profile: %d detectors active (%.2f total weight), "
+            "Auth profile%s: %d detectors active (%.2f total weight), "
             "%d zeroed",
-            len(self.AUTH_WEIGHTS),
+            " (flow-enriched)" if flow_enriched else "",
+            len(weights),
             sum(d.WEIGHT for d in self._detectors),
             zeroed,
         )
@@ -273,6 +291,13 @@ class DetectionPipeline:
         for e in events:
             topic_cts[e.topic_category] += 1
 
+        # Flow enrichment
+        bytes_list = [e.bytes_transferred for e in events]
+        total_bytes = sum(bytes_list)
+        avg_bytes = mean(bytes_list) if bytes_list else 0.0
+        conn_durs = [e.connection_duration_sec for e in events]
+        avg_conn_dur = mean(conn_durs) if conn_durs else 0.0
+
         return AccountProfile(
             account_id=account_id,
             archetype=events[0].archetype,
@@ -309,6 +334,11 @@ class DetectionPipeline:
             rate_limit_retry_delays_ms=retry_delays,
             topic_counts=dict(topic_cts),
             unique_topic_count=len(topic_cts),
+            bytes_transferred_list=bytes_list,
+            total_bytes_transferred=total_bytes,
+            avg_bytes_per_event=avg_bytes,
+            connection_durations_sec=conn_durs,
+            avg_connection_duration_sec=avg_conn_dur,
         )
 
     # -- Detection --

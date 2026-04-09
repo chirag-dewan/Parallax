@@ -42,7 +42,7 @@ class TestFullPipeline:
         assert attacker_score.composite_score > 0.5
         assert normal_score.composite_score < 0.5
 
-    def test_all_15_rules_present(self, attacker_profile):
+    def test_all_16_rules_present(self, attacker_profile):
         pipeline = DetectionPipeline()
         pipeline.register_default_detectors()
         pipeline._profiles[attacker_profile.account_id] = attacker_profile
@@ -56,7 +56,7 @@ class TestFullPipeline:
                 detector.set_population_baseline(baseline)
 
         assessment = pipeline.score_account(attacker_profile.account_id)
-        assert len(assessment.results) == 15
+        assert len(assessment.results) == 16
 
         for rule_id in RuleID:
             assert rule_id in assessment.results
